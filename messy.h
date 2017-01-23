@@ -5,31 +5,34 @@
 #include <string.h>
 #include <stdio.h>
 
-char** get_members(const char*);
 
-typedef struct channel{
-    char * name;
-    char ** members;
+typedef struct chan{
+    char* name;
+    char** members;
     int num_members;
-} channel;
+} chan;
 
 typedef struct messysession{
     char* username;
-    char* chanserv;
-    char* chanservpath;
-    channel* chan;
+    char* network;
+    char* networkpath;
+    chan* chan;
 } messysession;
 
-messysession *messy;
+messysession* messy;
+char* prefix = "/tmp/";
+int prefixlen = 5;
 
-void free_channel(channel* c){
+void free_chan(chan* c){
     for(int i = 0; i < c->num_members; i++)
         free(c->members[i]);
     free(c->name);
     free(c);
 }
 
-channel* get_channels(const char* chanserv){
+chan* get_chanlist(const char* network){
+
+    FILE* file = fopen(network, "r");
 
     return 0;
 }
@@ -45,24 +48,57 @@ int fsize(FILE *f){
     return size;
 }
 
-channel* make_channel(const char* chan){
+int send_network(const char* network){
+    return 1;
+}
+
+int send_chan(const char* chan){
+    return 1;
+}
+
+int send_user(const char* chan){
+    return 1;
+}
+
+void set_username(const char* name){
+    if(name){
+        int len = strlen(name);
+        if(len == 0)
+           perror("cannot set name to an empty string\n"); 
+        else{
+            messy->username = malloc(sizeof(char) * len + 1);
+            strcpy(messy->username, name);
+        }
+    }
+    else{
+       perror("cannot set name to an null string\n"); 
+    }
+}
+
+char** get_members(const char* chan){
+    return NULL; 
+}
+
+chan* make_chan(const char* chan){
     
-    FILE* file = fopen(messy->chanservpath,"a"); 
-    channel *c = malloc(sizeof(channel));
+    FILE* file = fopen(messy->networkpath,"a"); 
+    if(file == NULL){
+        perror("Error opening network, be sure to call init_messy\n");
+        return NULL;
+    }
+    chan* c = malloc(sizeof(chan));
 
     c->num_members = 0;
     c->members = NULL;
     c->name = malloc(sizeof(char) * strlen(chan));
     strcpy(c->name, chan);
 
-    fprintf(file, "%s\n", c->name);
-
     fclose(file);
 
     return c;
 }
 
-int join_channel(const char* chan){
+int join_chan(const char* chan){
 
     char *path = malloc(sizeof(char) * (strlen(chan) + 6)); 
     path = strcat(path, "/tmp/");
@@ -72,34 +108,24 @@ int join_channel(const char* chan){
     return 0;
 }
 
-int init_messy(const char* chanserv){
+int init_messy(const char* networkname){
 
     //if messychans does not exist, create it
-    int len = strlen(chanserv);
+    int len = strlen(networkname);
     messy = malloc(sizeof(messysession));
     messy->username = NULL;
     messy->chan = NULL;
-    messy->chanserv = malloc(sizeof(char) * (strlen(chanserv) + 1));
-    messy->chanservpath = malloc(sizeof(char) * (strlen(chanserv) + 7));
+    messy->network = malloc(sizeof(char) * (len + 1));
+    messy->networkpath = malloc(sizeof(char) * (len + prefixlen + 1));
 
-    int i; 
-    for(i = 0; chanserv[i] != '\0'; i++)
-        messy->chanserv[i] = chanserv[i];
-    messy->chanserv[i] = '\0';
+    strcpy(messy->network, networkname[i]);
+    strcpy(messy->networkpath, "/tmp/");
+    strcat(messy->networkpath, networkname);
 
-    messy->chanservpath[0] = '\0';
-    strcat(messy->chanservpath, "/tmp/");
-    for(i = 0; chanserv[i] != '\0'; i++)
-        messy->chanservpath[i + 5] = chanserv[i];
-    messy->chanservpath[i] = '\0';
-    
-    printf("chanserv: %s\nchanservpath: %s\n", 
-            messy->chanserv, messy->chanservpath);
-
-    if(access(messy->chanservpath, F_OK) != 0){
-        printf("creating chanserv: %s\n", messy->chanservpath);
-        int messychans = creat(messy->chanservpath, O_CREAT);
-        close(messychans);
+    if(access(messy->networkpath, F_OK) != 0){
+        printf("creating network: %s\n", messy->networkpath);
+        int messynetwork = open(messy->networkpath, O_RDWR);
+        close(messynetwork);
     }
 
     return 0;
