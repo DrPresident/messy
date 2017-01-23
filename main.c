@@ -13,8 +13,9 @@ int main(int argc, char ** argv){
 
     int messychans;
 
-    init_messy(".messynet");
+    init_messy("messynet");
     make_chan("chan1");
+    join_chan("chan1");
 
     return 0;
 }
