@@ -1,2 +1,2 @@
 all:
-	gcc -g messy.c -o debug
+	gcc -std=gnu99 -g main.c -o debug

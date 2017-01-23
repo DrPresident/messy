@@ -6,9 +6,6 @@
 #include <stdio.h>
 
 char** get_members(const char*);
-char** get_channels(const char*);
-
-char* _messychanserv;
 
 typedef struct channel{
     char * name;
@@ -16,10 +13,19 @@ typedef struct channel{
     int num_members;
 } channel;
 
+typedef struct messysession{
+    char* username;
+    char* chanserv;
+    char* chanservpath;
+    channel* chan;
+} messysession;
+
+messysession *messy;
+
 void free_channel(channel* c){
-    for(int i = 0; i < numMembers; i++)
-        free(members[i]);
-    free(name);
+    for(int i = 0; i < c->num_members; i++)
+        free(c->members[i]);
+    free(c->name);
     free(c);
 }
 
@@ -41,7 +47,7 @@ int fsize(FILE *f){
 
 channel* make_channel(const char* chan){
     
-    FILE* file = fopen(_messychanserv,"a"); 
+    FILE* file = fopen(messy->chanservpath,"a"); 
     channel *c = malloc(sizeof(channel));
 
     c->num_members = 0;
@@ -70,16 +76,36 @@ int init_messy(const char* chanserv){
 
     //if messychans does not exist, create it
     int len = strlen(chanserv);
-    _messychansserv = malloc(sizeof(char) * len);
-    
-    for(int i = 0; i <= len; i++)
-        _messychansserv[i] = chanserv[i];
+    messy = malloc(sizeof(messysession));
+    messy->username = NULL;
+    messy->chan = NULL;
+    messy->chanserv = malloc(sizeof(char) * (strlen(chanserv) + 1));
+    messy->chanservpath = malloc(sizeof(char) * (strlen(chanserv) + 7));
 
-    if(access("/tmp/messychans", F_OK) != 0){
-        messychans = creat("/tmp/messychans", O_CREAT);
+    int i; 
+    for(i = 0; chanserv[i] != '\0'; i++)
+        messy->chanserv[i] = chanserv[i];
+    messy->chanserv[i] = '\0';
+
+    messy->chanservpath[0] = '\0';
+    strcat(messy->chanservpath, "/tmp/");
+    for(i = 0; chanserv[i] != '\0'; i++)
+        messy->chanservpath[i + 5] = chanserv[i];
+    messy->chanservpath[i] = '\0';
+    
+    printf("chanserv: %s\nchanservpath: %s\n", 
+            messy->chanserv, messy->chanservpath);
+
+    if(access(messy->chanservpath, F_OK) != 0){
+        printf("creating chanserv: %s\n", messy->chanservpath);
+        int messychans = creat(messy->chanservpath, O_CREAT);
         close(messychans);
     }
 
     return 0;
+}
+
+void cleanup_messy(){
+
 }
 
