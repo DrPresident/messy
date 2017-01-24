@@ -1,2 +1,2 @@
 all:
-	gcc -std=gnu99 -g main.c -o debug
+	clang -std=c11 -g main.c -o debug

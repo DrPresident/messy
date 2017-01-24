@@ -11,11 +11,9 @@
 
 int main(int argc, char ** argv){
 
-    int messychans;
-
-    init_messy("messynet");
-    make_chan("chan1");
-    join_chan("chan1");
+    messy_network* network = messy_make_network("messynet", "Dr. User");
+    messy_make_chan(network,"chan1");
+    messy_join_chan("chan1");
 
     return 0;
 }
