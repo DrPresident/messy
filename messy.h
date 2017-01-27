@@ -8,7 +8,7 @@
 #include <errno.h>
 
 #define MAX_CHANS 100
-#define MAX_MEMBERS
+#define MAX_MEMBERS 100
 
 struct messy_network;
 
@@ -17,6 +17,7 @@ typedef struct messy_chan{
     char* path;
     struct messy_network* network;
     char** members;
+    char* memfile;
     int num_members;
 } messy_chan;
 
@@ -28,10 +29,10 @@ typedef struct messy_network{
     int num_chans;
 } messy_network;
 
+void _make_dir(const char *path);
 messy_network* _network;
 char* _prefix = "/tmp/";
 int _prefixlen = 5;
-void* _mem = NULL;
 int _mem_size;
 
 void _free_messy_chan(messy_chan* c){
@@ -95,19 +96,19 @@ char** messy_get_members(const char* messy_chan){
 messy_chan* messy_make_chan(messy_network *network, const char* chan_name){
     
     messy_chan* chan = malloc(sizeof(messy_chan));
-    int name_len = strlen(chan_name);
-    int net_name_len = strlen(network->name);
-    int net_path_len = strlen(network->path);
+    int name_len = strlen(chan_name),
+        net_name_len = strlen(network->name),
+        net_path_len = strlen(network->path),
+        chan_path_len = net_path_len + name_len + 1;
 
     network->chans[network->num_chans++] = chan;
     chan->network = network;
 
     chan->num_members = 0;
-    chan->members = NULL;
+    chan->members = malloc(sizeof(char*) * MAX_MEMBERS);
     chan->name = malloc(sizeof(char) * (name_len + 1));
     strcpy(chan->name, chan_name);
-    chan->path = malloc(sizeof(char) *
-            (net_name_len + name_len + 2));
+    chan->path = malloc(sizeof(char) * (net_path_len + name_len + 2));
     strcpy(chan->path, network->path);
     if(chan->path[net_path_len - 1] != '/'){
         chan->path[net_path_len] = '/';
@@ -116,30 +117,41 @@ messy_chan* messy_make_chan(messy_network *network, const char* chan_name){
     strcat(chan->path, chan_name);
     printf("creating chan at %s\n", chan->path);
 
-    FILE* file = fopen(chan->path,"w+"); 
+    _make_dir(chan->path);
+
+    chan->memfile = malloc(sizeof(char) * (chan_path_len + 10));
+    strcpy(chan->memfile, chan->path);
+    strcat(chan->memfile, "/.members");
+
+    FILE* file = fopen(chan_memfile,"w"); 
     if(file == NULL){
-        perror("Error opening channel: ");
+        perror("Error opening channel");
         return NULL;
     }
 
     //num_members written as char
-    //will change, leaving it there for simplicity
-    fwrite("\0", sizeof(char), 1, file);
+    fprintf(file, "0");
 
     fclose(file);
+    free(chan_memfile);
 
     return chan;
 }
 
-int messy_join_chan(messy_network *network, const char* chan){
-    int len = strlen(network->path);
-    char *path = malloc(sizeof(char) * (len + strlen(chan) + 2)); 
-    path = strcpy(path, network->path);
-    if(path[len - 1] != '/')
-        path = strcat(path, "/");
-    path = strcat(path, chan);
+int messy_join_chan(messy_network *network, const char* chan_name){
 
-    printf("%s\n", path);
+    messy_chan *chan;
+
+    for(int c = 0; c < network->num_chans; c++){
+        if(strcmp(network->chans[i]->name, chan)){
+            chan = network->chans + c;
+        }
+    }
+
+    FILE *file = fopen(chan->memfile, "r+");
+
+    fclose(file);
+
 
     free(path);
     return 0;
