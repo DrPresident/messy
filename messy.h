@@ -10,7 +10,7 @@
 #define MAX_CHANS 100
 #define MAX_MEMBERS 100
 
-struct messy_network;
+//struct messy_network;
 
 typedef struct messy_chan{
     char* name;
@@ -30,7 +30,7 @@ typedef struct messy_network{
 } messy_network;
 
 void _make_dir(const char *path);
-messy_network* _network;
+
 char* _prefix = "/tmp/";
 int _prefixlen = 5;
 int _mem_size;
@@ -39,16 +39,11 @@ void _free_messy_chan(messy_chan* c){
     for(int i = 0; i < c->num_members; i++)
         free(c->members[i]);
     free(c->name);
+    free(c->path);
+    for(int i = 0; i < c->num_members; i++)
+        free(c->members[i]);
+    free(c->members);
     free(c);
-}
-
-messy_chan* messy_get_chanlist(const messy_network* network){
-
-    FILE* file = fopen(network->path, "r");
-    int num_chans = fgetc(file);
-    messy_chan *list = malloc(sizeof(messy_chan) * num_chans);
-
-    return 0;
 }
 
 int _fsize(FILE *f){
@@ -74,22 +69,13 @@ int messy_send_user(const char* chan){
     return 1;
 }
 
-void messy_set_username(const char* name){
-    if(name){
-        int len = strlen(name);
-        if(len == 0)
-           perror("cannot set name to an empty string\n"); 
-        else{
-            _network->username = malloc(sizeof(char) * len + 1);
-            strcpy(_network->username, name);
-        }
-    }
-    else{
-       perror("cannot set name to an null string\n"); 
-    }
-}
+char** messy_get_members(const messy_network *network, 
+                         const char* chan_name){
 
-char** messy_get_members(const char* messy_chan){
+    for(int i = 0; i < network->num_chans; i++)
+        if(strcmp(network->chans[i]->name, chan_name) == 0)
+            return network->chans[i]->members;
+
     return NULL; 
 }
 
@@ -123,7 +109,7 @@ messy_chan* messy_make_chan(messy_network *network, const char* chan_name){
     strcpy(chan->memfile, chan->path);
     strcat(chan->memfile, "/.members");
 
-    FILE* file = fopen(chan_memfile,"w"); 
+    FILE* file = fopen(chan->memfile,"w"); 
     if(file == NULL){
         perror("Error opening channel");
         return NULL;
@@ -133,73 +119,97 @@ messy_chan* messy_make_chan(messy_network *network, const char* chan_name){
     fprintf(file, "0");
 
     fclose(file);
-    free(chan_memfile);
 
     return chan;
 }
 
+
+int messy_add_member(messy_chan *chan, const char* username){
+
+    struct stat s;
+    stat(chan->memfile, &s);
+    int len = strlen(username),
+        i,
+        size,
+        read;
+    char *memlist = malloc(s.st_size + len + 10);
+
+    FILE *file = fopen(chan->memfile, "r+");
+    read = fscanf(file, "%i", &size);
+    size++;
+
+    sprintf(memlist, "%i", size);
+
+    for(i = 0; memlist[i] >= '0' && memlist[i] <= '9'; i++);
+    
+    //read current contents
+    fread(memlist + i, s.st_size - read, 1, file);
+    fclose(file);
+    
+    printf("memlist: %s", memlist);
+    //write edited contents
+    file = fopen(chan->memfile, "w");
+    fwrite(memlist, strlen(memlist), 1, file);
+    fprintf(file, "\n%s", username);
+    fclose(file);
+
+    return 0;
+}
+
 int messy_join_chan(messy_network *network, const char* chan_name){
 
-    messy_chan *chan;
+    messy_chan *chan = NULL;
 
-    for(int c = 0; c < network->num_chans; c++){
-        if(strcmp(network->chans[i]->name, chan)){
-            chan = network->chans + c;
+    for(int i = 0; i < network->num_chans; i++){
+        if(strcmp(network->chans[i]->name, chan_name) == 0){
+            chan = network->chans[i]; 
+            break;
         }
     }
 
-    FILE *file = fopen(chan->memfile, "r+");
-
-    fclose(file);
-
-
-    free(path);
-    return 0;
+    if(chan)
+        return messy_add_member(chan, network->username);
+    else
+        return 1;
 }
 
 messy_network* messy_make_network(const char* network_name, 
                                   const char* username){
 
-    //if network does not exist, create it
     int len = strlen(network_name);
     
-    _network = malloc(sizeof(_network));
-    _network->chans = malloc(sizeof(messy_chan*) * MAX_CHANS); 
-    _network->num_chans = 0;
+    messy_network* network = malloc(sizeof(messy_network));
+    network->username = malloc(sizeof(char) * strlen(username) + 1);
+    strcpy(network->username, username);
+    network->chans = malloc(sizeof(messy_chan*) * MAX_CHANS); 
+    network->num_chans = 0;
 
     //make network hidden if not already
     if(network_name[0] != '.'){
-        _network->name = malloc(sizeof(char) * (++len + 1));
-        _network->name[0] = '.';
-        _network->name[1] = '\0';
+        network->name = malloc(sizeof(char) * (++len + 1));
+        network->name[0] = '.';
+        network->name[1] = '\0';
     }
     else{
-        _network->name = malloc(sizeof(char) * (len + 1));
-        _network->name [0] = '\0';
+        network->name = malloc(sizeof(char) * (len + 1));
+        network->name [0] = '\0';
     }
 
-    _network->path = malloc(sizeof(char) * (len + _prefixlen + 1));
+    network->path = malloc(sizeof(char) * (len + _prefixlen + 1));
 
-    strcat(_network->name, network_name);
-    strcpy(_network->path, _prefix);
-    strcat(_network->path, _network->name);
+    strcat(network->name, network_name);
+    strcpy(network->path, _prefix);
+    strcat(network->path, network->name);
 
-    DIR* dir = opendir(_network->path);
+    //if network does not exist, create it
+    DIR* dir = opendir(network->path);
     if(dir)
         closedir(dir);
     else if(errno == ENOENT){
-        mkdir(_network->path, 0777);
+        mkdir(network->path, 0777);
     }
 
-    /*
-    if(access(_network->path, F_OK) != 0){
-        printf("creating network: %s\n", _network->path);
-        int network_folder = open(_network->path, O_RDWR);
-        close(network_folder);
-    }
-    */
-
-    return _network;
+    return network;
 }
 
 void _touch_file(const char *path){
