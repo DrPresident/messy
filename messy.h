@@ -8,6 +8,7 @@
 #include <errno.h>
 
 #define MAX_CHANS 100
+#define MAX_MEMBERS
 
 struct messy_network;
 
@@ -96,30 +97,30 @@ messy_chan* messy_make_chan(messy_network *network, const char* chan_name){
     messy_chan* chan = malloc(sizeof(messy_chan));
     int name_len = strlen(chan_name);
     int net_name_len = strlen(network->name);
+    int net_path_len = strlen(network->path);
 
     network->chans[network->num_chans++] = chan;
     chan->network = network;
 
+    chan->num_members = 0;
+    chan->members = NULL;
     chan->name = malloc(sizeof(char) * (name_len + 1));
     strcpy(chan->name, chan_name);
     chan->path = malloc(sizeof(char) *
-            (strlen(network->name) + name_len + 2));
+            (net_name_len + name_len + 2));
     strcpy(chan->path, network->path);
-    chan->path[strlen(network->path)] = '/';
+    if(chan->path[net_path_len - 1] != '/'){
+        chan->path[net_path_len] = '/';
+        chan->path[net_path_len + 1] = '\0';
+    }
     strcat(chan->path, chan_name);
+    printf("creating chan at %s\n", chan->path);
 
-    printf("%s\n", network->path);
-    printf("%s\n", chan->path);
     FILE* file = fopen(chan->path,"w+"); 
     if(file == NULL){
-        perror("Error opening channel");
+        perror("Error opening channel: ");
         return NULL;
     }
-
-    chan->num_members = 0;
-    chan->members = NULL;
-    chan->name = malloc(sizeof(char) * strlen(chan_name));
-    strcpy(chan->name, chan_name);
 
     //num_members written as char
     //will change, leaving it there for simplicity
@@ -130,10 +131,15 @@ messy_chan* messy_make_chan(messy_network *network, const char* chan_name){
     return chan;
 }
 
-int messy_join_chan(const char* chan){
-    char *path = malloc(sizeof(char) * (strlen(chan) + 6)); 
-    path = strcat(path, "/tmp/");
+int messy_join_chan(messy_network *network, const char* chan){
+    int len = strlen(network->path);
+    char *path = malloc(sizeof(char) * (len + strlen(chan) + 2)); 
+    path = strcpy(path, network->path);
+    if(path[len - 1] != '/')
+        path = strcat(path, "/");
     path = strcat(path, chan);
+
+    printf("%s\n", path);
 
     free(path);
     return 0;
@@ -200,7 +206,7 @@ void _make_dir(const char *path){
 
 void NOTWORKING_make_hidden_dir(const char *path){
     int len = strlen(path);
-    char *str = malloc(sizeof(char) * (len + 2)); // made room for null-terminator and possible dot
+    char *str = malloc(sizeof(char) * (len + 2)); 
     for(int i = len - 2; i > 0; i++){
         if(path[i] == '/'){
             if(path[i + 1] != '.'){
