@@ -12,7 +12,10 @@
 int main(int argc, char ** argv){
 
     messy_network* network = messy_make_network("messynet", "Dr. User");
+    printf("usernamemain: %s\n", network->username);
     messy_make_chan(network,"chan1");
+    messy_join_chan(network, "chan1");
+    network->username = "hello";
     messy_join_chan(network, "chan1");
 
     return 0;

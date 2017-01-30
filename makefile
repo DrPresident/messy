@@ -1,2 +1,2 @@
 all:
-	clang -std=c11 -g main.c -o debug
+	clang -std=c11 -Wall -g main.c -o debug
