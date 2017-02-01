@@ -17,6 +17,10 @@ int main(int argc, char ** argv){
     messy_join_chan(network, "chan1");
     network->username = "hello";
     messy_join_chan(network, "chan1");
+    network->username = "newuser";
+    messy_join_chan(network, "chan1");
+
+    messy_cleanup(network);
 
     return 0;
 }
