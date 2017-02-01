@@ -28,7 +28,7 @@ typedef struct messy_network{
     int num_chans;
 } messy_network;
 
-void _make_dir(const char *path);
+int _make_dir(const char *path);
 void removeWhitespace(char **str);
 
 char* _prefix = "/tmp/";
@@ -207,12 +207,18 @@ messy_network* messy_make_network(const char* network_name,
     strcat(network->path, network->name);
 
     //if network does not exist, create it
+    int existed = _make_dir(network->path);
+    /*
     DIR* dir = opendir(network->path);
     if(dir)
         closedir(dir);
     else if(errno == ENOENT){
         mkdir(network->path, 0777);
     }
+    */
+
+    if(existed)
+        printf("%s exists", network->name);
 
     return network;
 }
@@ -222,12 +228,17 @@ void _touch_file(const char *path){
     close(fd);
 }
 
-void _make_dir(const char *path){
+int _make_dir(const char *path){
     DIR* dir = opendir(path);
-    if(dir)
+    if(dir){
         closedir(dir);
-    else if(errno == ENOENT)
+        return 0;
+    }
+    else if(errno == ENOENT){
         mkdir(path, 0777);
+        return 1;
+    }
+    return 2;
 }
 
 /*
