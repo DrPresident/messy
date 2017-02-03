@@ -16,6 +16,8 @@ typedef struct messy_chan{
     char* path;
     struct messy_network* network;
     char** members;
+    int* members_pipes;
+    int* mypipe;
     char* memfile;
     int num_members;
 } messy_chan;
@@ -35,25 +37,51 @@ char* _prefix = "/tmp/";
 int _prefixlen = 5;
 int _mem_size;
 
-
-int messy_send_network(const char* network){
+int messy_send_network(messy_network* network, const char* msg){
     return 1;
 }
 
-int messy_send_chan(const char* chan){
-    return 1;
+int messy_send_chan(messy_network *network, const char* chan_name, 
+        const char* msg){
 }
 
-int messy_send_user(const char* chan){
-    return 1;
+int messy_send_user(messy_network *network, const char* chan_name, 
+        const char* username, const char* msg){
+
+    messy_chan* chan = NULL;
+    int c;
+
+    for(c = 0; chan == NULL && c < network.num_chans; c++)
+        if(strcmp(network->chans[c]->name, chan_name) == 0)
+            chan = network->chans + c;
+
+    for(c = 0; c < chan->num_members; c++){
+        if(strcmp(chan->members[c], username) == 0){
+            //constructing full msg
+            char *tmp = malloc(sizeof(char) * 100);
+            
+            strcpy(tmp, network->username);
+            strcat(tmp, ": ");
+            strcat(tmp, msg);
+            strcat(tmp, "\0");
+            printf("full msg: %s", tmp);
+            write(chan->members_pipes[c], tmp, strlen(tmp));
+            return 0;
+        }
+    }
+
+
 }
 
-char** messy_get_members(const messy_network *network, 
-                         const char* chan_name){
+void messy_get_members_list(const messy_network *network, 
+                         const char* chan_name, char **list, int *size){
 
-    for(int i = 0; i < network->num_chans; i++)
-        if(strcmp(network->chans[i]->name, chan_name) == 0)
-            return network->chans[i]->members;
+    for(int i = 0; i < network->num_chans; i++){
+        if(strcmp(network->chans[i]->name, chan_name) == 0){
+            *list = network->chans[i]->members;
+            *size = network->chans[i]->num_members;
+        }
+    }
 
     return NULL; 
 }
@@ -82,10 +110,14 @@ messy_chan* messy_make_chan(messy_network *network, const char* chan_name){
 
     chan->num_members = 0;
     chan->members = malloc(sizeof(char*) * MAX_MEMBERS);
+    chan->members_pipes = malloc(sizeof(int) * MAX_MEMBERS);
+    memset(chan->members_pipes, 0, sizeof(int) * MAX_MEMBERS);
+
     chan->name = malloc(sizeof(char) * (name_len + 1));
     strcpy(chan->name, chan_name);
     chan->path = malloc(sizeof(char) * (net_path_len + name_len + 2));
     strcpy(chan->path, network->path);
+
     if(chan->path[net_path_len - 1] != '/'){
         chan->path[net_path_len] = '/';
         chan->path[net_path_len + 1] = '\0';
@@ -128,7 +160,6 @@ int messy_add_member(messy_chan *chan, const char* username){
     read = fscanf(file, "%i", &num_members);
     num_members++;
 
-
     //read current contents into memlist
     sprintf(memlist, "%i", num_members);
     while(!feof(file)){
@@ -146,8 +177,21 @@ int messy_add_member(messy_chan *chan, const char* username){
     fwrite(memlist, strlen(memlist), 1, file);
     fclose(file);
 
-    free(memlist);
+    //make pipe for this user
     free(tmp);
+    tmp = malloc(sizeof(char) 
+            * (strlen(chan->path) + strlen(chan->network->username) + 2));
+    strcpy(tmp, chan->path);
+    strcat(tmp, "/");
+    strcat(tmp, chan->network->username);
+    mkfifo(tmp, S_IRUSR | S_IWUSR | S_IWGRP | S_IWOTH);
+    int fd[2] = open(tmp, O_RDWR);
+    //close write end
+    close(fd[1]);
+    chan->mypipe = fd[0];
+
+    free(tmp);
+    free(memlist);
 
     return 0;
 }
@@ -162,8 +206,11 @@ int messy_join_chan(messy_network *network, const char* chan_name){
             break;
         }
     }
-    if(chan)
-        return messy_add_member(chan, network->username);
+    if(chan){
+        messy_add_member(chan, network->username);
+        //need to open other users pipes
+        
+    }
     else
         return 1;
 }
